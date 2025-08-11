@@ -13,11 +13,11 @@ ENV GOARCH=amd64
 # 安装必要的构建工具
 RUN apk add --no-cache gcc g++ libc6-compat
 
-# 复制go.mod和go.sum
-COPY go.mod go.sum ./
+# 复制go.mod文件
+COPY go.mod ./
 
-# 下载依赖
-RUN go mod download
+# 执行go mod tidy下载依赖并生成go.sum
+RUN go mod tidy
 
 # 复制源代码
 COPY . .
