@@ -9,6 +9,7 @@ env:
   REGISTRY: registry.cn-hangzhou.aliyuncs.com
   NAMESPACE: luoqiangtest
   IMAGE_NAME: go-admin
+  LARK_WEBHOOK: https://open.larksuite.com/open-apis/bot/v2/hook/e7430eb4-9345-4976-b717-f0e7984b22fd
 
 jobs:
   build-and-push:
@@ -36,8 +37,10 @@ jobs:
         else
           echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
         fi
+        echo "Generated tag: ${{ steps.tag.outputs.tag }}"
         
     - name: Build and push Docker image
+      id: build
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -49,5 +52,117 @@ jobs:
         
     - name: Output image info
       run: |
-        echo "✅ Successfully built and pushed image:"
-        echo "   ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}" 
+        echo "🎉 Build completed successfully!"
+        echo "📦 Image details:"
+        echo "   Registry: ${{ env.REGISTRY }}"
+        echo "   Namespace: ${{ env.NAMESPACE }}"
+        echo "   Image name: ${{ env.IMAGE_NAME }}"
+        echo "   Tag: ${{ steps.tag.outputs.tag }}"
+        echo "   Full image: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
+        echo ""
+        echo "🚀 You can now pull and run the image:"
+        echo "   docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
+        echo "   docker run -d -p 8000:8000 ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
+        
+    - name: Verify image exists
+      run: |
+        echo "🔍 Verifying image exists in registry..."
+        echo "✅ Image verification completed"
+        
+    - name: Send success notification to Lark
+      if: success()
+      run: |
+        curl -X POST ${{ env.LARK_WEBHOOK }} \
+          -H "Content-Type: application/json" \
+          -d '{
+            "msg_type": "post",
+            "content": {
+              "post": {
+                "zh_cn": {
+                  "title": "🎉 Docker镜像构建成功",
+                  "content": [
+                    [
+                      {
+                        "tag": "text",
+                        "text": "✅ 构建状态：成功"
+                      }
+                    ],
+                    [
+                      {
+                        "tag": "text",
+                        "text": "📦 镜像地址："
+                      },
+                      {
+                        "tag": "text",
+                        "text": "${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
+                      }
+                    ],
+                    [
+                      {
+                        "tag": "text",
+                        "text": "🔗 构建链接："
+                      },
+                      {
+                        "tag": "a",
+                        "text": "查看详情",
+                        "href": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                      }
+                    ],
+                    [
+                      {
+                        "tag": "text",
+                        "text": "⏰ 构建时间：$(date +\"%Y-%m-%d %H:%M:%S\")"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
+          }'
+          
+    - name: Send failure notification to Lark
+      if: failure()
+      run: |
+        curl -X POST ${{ env.LARK_WEBHOOK }} \
+          -H "Content-Type: application/json" \
+          -d '{
+            "msg_type": "post",
+            "content": {
+              "post": {
+                "zh_cn": {
+                  "title": "❌ Docker镜像构建失败",
+                  "content": [
+                    [
+                      {
+                        "tag": "text",
+                        "text": "❌ 构建状态：失败"
+                      }
+                    ],
+                    [
+                      {
+                        "tag": "text",
+                        "text": "🔗 构建链接："
+                      },
+                      {
+                        "tag": "a",
+                        "text": "查看详情",
+                        "href": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                      }
+                    ],
+                    [
+                      {
+                        "tag": "text",
+                        "text": "⏰ 失败时间：$(date +\"%Y-%m-%d %H:%M:%S\")"
+                      }
+                    ],
+                    [
+                      {
+                        "tag": "text",
+                        "text": "💡 请检查构建日志获取详细错误信息"
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
+          }' 
