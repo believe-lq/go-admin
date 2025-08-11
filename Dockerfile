@@ -1,17 +1,17 @@
 # 构建阶段
-FROM golang:alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # 设置工作目录
 WORKDIR /app
 
 # 设置Go环境变量
 ENV GOPROXY=https://goproxy.cn,direct
-ENV CGO_ENABLED=0
+ENV CGO_ENABLED=1
 ENV GOOS=linux
 ENV GOARCH=amd64
 
-# 安装必要的构建工具
-RUN apk add --no-cache gcc g++ libc6-compat
+# 安装必要的构建工具和sqlite3依赖
+RUN apk add --no-cache gcc g++ libc6-compat sqlite-dev
 
 # 复制go.mod文件
 COPY go.mod ./
@@ -22,8 +22,11 @@ RUN go mod tidy
 # 复制源代码
 COPY . .
 
-# 编译应用
-RUN go build -ldflags="-w -s" -o go-admin .
+# 显示Go版本和模块信息
+RUN go version && go env
+
+# 编译应用（添加详细输出）
+RUN go build -v -ldflags="-w -s" -o go-admin . || (echo "Build failed, checking for errors..." && exit 1)
 
 # 运行阶段
 FROM alpine
@@ -31,7 +34,7 @@ FROM alpine
 # 安装运行时依赖
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 RUN apk update --no-cache
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata sqlite
 ENV TZ Asia/Shanghai
 
 # 从构建阶段复制编译好的应用
