@@ -128,39 +128,18 @@ jobs:
     - name: Send failure notification to Lark
       if: failure()
       run: |
-        # 获取失败步骤信息
-        FAILED_STEP=""
-        ERROR_MSG=""
-        
-        # 检查各个步骤的状态
-        if [ "${{ steps.checkout.outputs.outcome }}" = "failure" ]; then
-          FAILED_STEP="代码检出"
-          ERROR_MSG="无法检出代码，可能是仓库权限问题"
-        elif [ "${{ steps.setup-docker.outputs.outcome }}" = "failure" ]; then
-          FAILED_STEP="Docker环境设置"
-          ERROR_MSG="Docker Buildx设置失败"
-        elif [ "${{ steps.login.outputs.outcome }}" = "failure" ]; then
-          FAILED_STEP="阿里云登录"
-          ERROR_MSG="阿里云镜像仓库登录失败，请检查用户名和密码"
-        elif [ "${{ steps.tag.outputs.outcome }}" = "failure" ]; then
-          FAILED_STEP="标签生成"
-          ERROR_MSG="镜像标签生成失败"
-        elif [ "${{ steps.build.outputs.outcome }}" = "failure" ]; then
-          FAILED_STEP="Docker构建"
-          ERROR_MSG="Docker镜像构建失败，请检查Dockerfile和代码"
-        elif [ "${{ steps.output.outputs.outcome }}" = "failure" ]; then
-          FAILED_STEP="信息输出"
-          ERROR_MSG="构建信息输出失败"
-        elif [ "${{ steps.verify.outputs.outcome }}" = "failure" ]; then
-          FAILED_STEP="镜像验证"
-          ERROR_MSG="镜像验证失败"
-        else
-          FAILED_STEP="未知步骤"
-          ERROR_MSG="构建过程中发生未知错误"
-        fi
-        
         # 获取GitHub Actions日志链接
         LOGS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        
+        # 根据错误类型提供具体的错误信息
+        ERROR_MSG="Docker镜像构建失败"
+        SUGGESTION="请检查构建日志获取详细错误信息"
+        
+        # 检查是否是Go编译错误
+        if [[ "${{ job.status }}" == "failure" ]]; then
+          ERROR_MSG="Go代码编译失败，可能是语法错误、依赖问题或Dockerfile配置问题"
+          SUGGESTION="请检查Go代码语法、依赖配置和Dockerfile设置"
+        fi
         
         curl -X POST ${{ env.LARK_WEBHOOK }} \
           -H "Content-Type: application/json" \
@@ -180,7 +159,7 @@ jobs:
                     [
                       {
                         "tag": "text",
-                        "text": "🚨 失败步骤：'$FAILED_STEP'"
+                        "text": "🚨 失败步骤：Build and push Docker image"
                       }
                     ],
                     [
@@ -209,7 +188,7 @@ jobs:
                     [
                       {
                         "tag": "text",
-                        "text": "💡 建议：请点击上方链接查看详细错误日志"
+                        "text": "💡 建议：'$SUGGESTION'"
                       }
                     ]
                   ]
