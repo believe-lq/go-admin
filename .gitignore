@@ -19,5 +19,5 @@ cmd/migrate/migration/version-local/*
 !cmd/migrate/migration/version-local/doc.go
 
 # go sum
-go.sum
+# go.sum  # 注释掉，go.sum 应该被提交到版本控制
 config/settings.deva.yml
