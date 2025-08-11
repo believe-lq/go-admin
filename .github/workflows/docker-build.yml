@@ -75,6 +75,7 @@ jobs:
         echo "✅ Image verification completed"
         
     - name: Test webhook connection
+      id: test-webhook
       run: |
         echo "🔍 测试飞书Webhook连接..."
         echo "Webhook URL: ${{ env.LARK_WEBHOOK }}"
@@ -151,13 +152,41 @@ jobs:
         # 获取GitHub Actions日志链接
         LOGS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         
-        # 发送简单的失败消息
+        # 动态识别失败步骤
+        FAILED_STEP="未知步骤"
+        
+        # 通过检查各个步骤的退出状态来判断失败位置
+        if [[ "${{ steps.checkout.conclusion }}" == "failure" ]]; then
+          FAILED_STEP="Checkout code"
+        elif [[ "${{ steps.setup-docker.conclusion }}" == "failure" ]]; then
+          FAILED_STEP="Set up Docker Buildx"
+        elif [[ "${{ steps.login.conclusion }}" == "failure" ]]; then
+          FAILED_STEP="Login to Aliyun Container Registry"
+        elif [[ "${{ steps.tag.conclusion }}" == "failure" ]]; then
+          FAILED_STEP="Generate tag"
+        elif [[ "${{ steps.build.conclusion }}" == "failure" ]]; then
+          FAILED_STEP="Build and push Docker image"
+        elif [[ "${{ steps.output.conclusion }}" == "failure" ]]; then
+          FAILED_STEP="Output image info"
+        elif [[ "${{ steps.verify.conclusion }}" == "failure" ]]; then
+          FAILED_STEP="Verify image exists"
+        elif [[ "${{ steps.test-webhook.conclusion }}" == "failure" ]]; then
+          FAILED_STEP="Test webhook connection"
+        else
+          # 如果无法确定具体步骤，根据错误模式推断
+          FAILED_STEP="Build and push Docker image"
+        fi
+        
+        # 获取当前时间
+        CURRENT_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+        
+        # 发送详细的失败消息
         curl -X POST ${{ env.LARK_WEBHOOK }} \
           -H "Content-Type: application/json" \
           -d '{
             "msg_type": "text",
             "content": {
-              "text": "❌ Docker镜像构建失败\n🔗 查看详情: '$LOGS_URL'"
+              "text": "❌ Docker镜像构建失败\n\n🔍 失败步骤：'$FAILED_STEP'\n⏰ 失败时间：'$CURRENT_TIME'\n🔗 查看详情：'$LOGS_URL'"
             }
           }'
         
