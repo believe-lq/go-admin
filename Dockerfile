@@ -1,7 +1,7 @@
 # 构建阶段
 FROM golang:1.24-alpine AS builder
 
-# 设置工作目录
+# 设置工作目录2
 WORKDIR /app
 
 # 设置Go环境变量 - 使用国内代理
