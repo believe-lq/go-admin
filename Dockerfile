@@ -9,24 +9,37 @@ ENV GOPROXY=https://goproxy.io,direct
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
+ENV GO111MODULE=on
 
 # 使用国内源安装基本工具
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \
     apk update --no-cache && \
-    apk add --no-cache git
+    apk add --no-cache git ca-certificates
 
-# 复制依赖文件（go.sum可选）
-COPY go.mod ./
+# 复制依赖文件
+COPY go.mod go.sum ./
 
-# 下载依赖
-RUN go mod tidy
+# 显示构建环境信息
+RUN go version && \
+    go env GOPROXY && \
+    go env GOSUMDB
 
+# 尝试下载依赖，如果失败则使用tidy
+RUN go mod download || (echo "Download failed, trying go mod tidy..." && go mod tidy && go mod download)
+
+# 验证依赖
+RUN go mod verify
 
 # 复制源代码
 COPY . .
 
-# 静态编译应用（不需要CGO）
-RUN CGO_ENABLED=0 go build -v -ldflags="-w -s" -o go-admin ./main.go
+# 显示文件结构
+RUN ls -la && echo "=== Source files ===" && find . -name "*.go" | head -10
+
+# 静态编译应用（添加详细错误信息）
+RUN CGO_ENABLED=0 go build -v -ldflags="-w -s" -o go-admin ./main.go 2>&1 || \
+    (echo "Build failed, trying to get more info..." && \
+     go build -v ./main.go 2>&1 && exit 1)
 
 # 运行阶段
 FROM alpine:3.18
