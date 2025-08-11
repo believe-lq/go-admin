@@ -10,8 +10,8 @@ type ALiYunOSS struct {
 	BucketName string
 }
 
-//Setup 装载
-//endpoint sss
+// Setup 装载
+// endpoint sss
 func (e *ALiYunOSS) Setup(endpoint, accessKeyID, accessKeySecret, BucketName string, options ...ClientOption) error {
 	client, err := oss.New(endpoint, accessKeyID, accessKeySecret)
 	if err != nil {
@@ -46,3 +46,8 @@ func (e *ALiYunOSS) UpLoad(yourObjectName string, localFile interface{}) error {
 func (e *ALiYunOSS) GetTempToken() (string, error) {
 	return "", nil
 }
+
+/*
+传镜像 拉镜像运行
+传代码 拉代码构建镜像运行
+*/
