@@ -184,9 +184,38 @@ jobs:
         curl -X POST ${{ env.LARK_WEBHOOK }} \
           -H "Content-Type: application/json" \
           -d '{
-            "msg_type": "text",
+            "msg_type": "post",
             "content": {
-              "text": "❌ Docker镜像构建失败\n\n🔍 失败步骤：'$FAILED_STEP'\n⏰ 失败时间：'$CURRENT_TIME'\n🔗 查看详情：'$LOGS_URL'"
+              "post": {
+                "zh_cn": {
+                  "title": "❌ Docker镜像构建失败",
+                  "content": [
+                    [
+                      {
+                        "tag": "text",
+                        "text": "🔍 失败步骤：'$FAILED_STEP'"
+                      }
+                    ],
+                    [
+                      {
+                        "tag": "text",
+                        "text": "⏰ 失败时间：'$CURRENT_TIME'"
+                      }
+                    ],
+                    [
+                      {
+                        "tag": "text",
+                        "text": "🔗 详细日志："
+                      },
+                      {
+                        "tag": "a",
+                        "text": "点击查看",
+                        "href": "'$LOGS_URL'"
+                      }
+                    ]
+                  ]
+                }
+              }
             }
           }'
         
