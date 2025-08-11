@@ -68,94 +68,35 @@ jobs:
         echo "   docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
         echo "   docker run -d -p 8000:8000 ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
         
-    - name: Verify image exists
-      id: verify
-      run: |
-        echo "🔍 Verifying image exists in registry..."
-        echo "✅ Image verification completed"
-        
-    - name: Test webhook connection
-      id: test-webhook
-      run: |
-        echo "🔍 测试飞书Webhook连接..."
-        echo "Webhook URL: ${{ env.LARK_WEBHOOK }}"
-        
-        # 发送简单的测试消息
-        curl -X POST ${{ env.LARK_WEBHOOK }} \
-          -H "Content-Type: application/json" \
-          -d '{
-            "msg_type": "text",
-            "content": {
-              "text": "🔧 GitHub Actions测试消息 - 构建开始"
-            }
-          }'
-        
-        echo "✅ Webhook测试完成"
-        
     - name: Send success notification to Lark
       if: success()
       run: |
-        echo "📤 发送成功通知..."
+        echo "发送成功通知到飞书..."
+        
+        # 构建消息内容
+        MESSAGE="Docker镜像构建成功\n\n构建状态：成功\n镜像地址：${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}\n构建链接：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n构建时间：$(date '+%Y-%m-%d %H:%M:%S')"
+        
+        # 发送文本消息
         curl -X POST ${{ env.LARK_WEBHOOK }} \
           -H "Content-Type: application/json" \
-          -d '{
-            "msg_type": "post",
-            "content": {
-              "post": {
-                "zh_cn": {
-                  "title": "🎉 Docker镜像构建成功",
-                  "content": [
-                    [
-                      {
-                        "tag": "text",
-                        "text": "✅ 构建状态：成功"
-                      }
-                    ],
-                    [
-                      {
-                        "tag": "text",
-                        "text": "📦 镜像地址："
-                      },
-                      {
-                        "tag": "text",
-                        "text": "${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
-                      }
-                    ],
-                    [
-                      {
-                        "tag": "text",
-                        "text": "🔗 构建链接："
-                      },
-                      {
-                        "tag": "a",
-                        "text": "查看详情",
-                        "href": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                      }
-                    ],
-                    [
-                      {
-                        "tag": "text",
-                        "text": "⏰ 构建时间：${{ github.event.head_commit.timestamp }}"
-                      }
-                    ]
-                  ]
-                }
-              }
-            }
-          }'
-          
+          -d "{\"msg_type\": \"text\", \"content\": {\"text\": \"$MESSAGE\"}}" \
+          --silent --show-error --fail
+        
+        if [ $? -eq 0 ]; then
+          echo "成功通知发送完成"
+        else
+          echo "通知发送失败，但不影响构建"
+        fi
+        
     - name: Send failure notification to Lark
       if: failure()
       run: |
-        echo "📤 发送失败通知..."
+        echo "发送失败通知到飞书..."
         
-        # 获取GitHub Actions日志链接
-        LOGS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        
-        # 动态识别失败步骤
+        # 获取失败步骤信息
         FAILED_STEP="未知步骤"
         
-        # 通过检查各个步骤的退出状态来判断失败位置
+        # 检查各个步骤状态
         if [[ "${{ steps.checkout.conclusion }}" == "failure" ]]; then
           FAILED_STEP="Checkout code"
         elif [[ "${{ steps.setup-docker.conclusion }}" == "failure" ]]; then
@@ -168,55 +109,21 @@ jobs:
           FAILED_STEP="Build and push Docker image"
         elif [[ "${{ steps.output.conclusion }}" == "failure" ]]; then
           FAILED_STEP="Output image info"
-        elif [[ "${{ steps.verify.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="Verify image exists"
-        elif [[ "${{ steps.test-webhook.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="Test webhook connection"
         else
-          # 如果无法确定具体步骤，根据错误模式推断
           FAILED_STEP="Build and push Docker image"
         fi
         
-        # 获取当前时间
-        CURRENT_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+        # 构建失败消息
+        MESSAGE="Docker镜像构建失败\n\n失败步骤：$FAILED_STEP\n失败时间：$(date '+%Y-%m-%d %H:%M:%S')\n详细日志：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         
-        # 发送详细的失败消息
+        # 发送失败通知
         curl -X POST ${{ env.LARK_WEBHOOK }} \
           -H "Content-Type: application/json" \
-          -d '{
-            "msg_type": "post",
-            "content": {
-              "post": {
-                "zh_cn": {
-                  "title": "❌ Docker镜像构建失败",
-                  "content": [
-                    [
-                      {
-                        "tag": "text",
-                        "text": "🔍 失败步骤：'$FAILED_STEP'"
-                      }
-                    ],
-                    [
-                      {
-                        "tag": "text",
-                        "text": "⏰ 失败时间：'$CURRENT_TIME'"
-                      }
-                    ],
-                    [
-                      {
-                        "tag": "text",
-                        "text": "🔗 详细日志："
-                      },
-                      {
-                        "tag": "a",
-                        "text": "点击查看",
-                        "href": "'$LOGS_URL'"
-                      }
-                    ]
-                  ]
-                }
-              }
-            }
-          }'
+          -d "{\"msg_type\": \"text\", \"content\": {\"text\": \"$MESSAGE\"}}" \
+          --silent --show-error --fail
         
-        echo "✅ 失败通知发送完成" 
+        if [ $? -eq 0 ]; then
+          echo "失败通知发送完成"
+        else
+          echo "通知发送失败，但不影响构建状态"
+        fi 
