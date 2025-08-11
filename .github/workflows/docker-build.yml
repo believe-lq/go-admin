@@ -116,7 +116,7 @@ jobs:
                     [
                       {
                         "tag": "text",
-                        "text": "⏰ 构建时间：$(date +\"%Y-%m-%d %H:%M:%S\")"
+                        "text": "⏰ 构建时间：${{ github.run_started_at }}"
                       }
                     ]
                   ]
@@ -133,43 +133,25 @@ jobs:
         
         # 动态识别失败步骤
         FAILED_STEP="未知步骤"
-        ERROR_MSG="构建过程中发生错误"
-        SUGGESTION="请检查构建日志获取详细错误信息"
         
         # 通过检查各个步骤的退出状态来判断失败位置
         if [[ "${{ steps.checkout.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="代码检出"
-          ERROR_MSG="无法检出代码，可能是仓库权限问题"
-          SUGGESTION="请检查仓库权限和网络连接"
+          FAILED_STEP="Checkout code"
         elif [[ "${{ steps.setup-docker.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="Docker环境设置"
-          ERROR_MSG="Docker Buildx设置失败"
-          SUGGESTION="请检查Docker环境配置"
+          FAILED_STEP="Set up Docker Buildx"
         elif [[ "${{ steps.login.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="阿里云登录"
-          ERROR_MSG="阿里云镜像仓库登录失败，请检查用户名和密码"
-          SUGGESTION="请检查ALIYUN_USERNAME和ALIYUN_PASSWORD配置"
+          FAILED_STEP="Login to Aliyun Container Registry"
         elif [[ "${{ steps.tag.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="标签生成"
-          ERROR_MSG="镜像标签生成失败"
-          SUGGESTION="请检查分支名称和标签生成逻辑"
+          FAILED_STEP="Generate tag"
         elif [[ "${{ steps.build.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="Docker镜像构建"
-          ERROR_MSG="Go代码编译失败，可能是语法错误、依赖问题或Dockerfile配置问题"
-          SUGGESTION="请检查Go代码语法、依赖配置和Dockerfile设置"
+          FAILED_STEP="Build and push Docker image"
         elif [[ "${{ steps.output.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="信息输出"
-          ERROR_MSG="构建信息输出失败"
-          SUGGESTION="请检查输出脚本配置"
+          FAILED_STEP="Output image info"
         elif [[ "${{ steps.verify.conclusion }}" == "failure" ]]; then
-          FAILED_STEP="镜像验证"
-          ERROR_MSG="镜像验证失败"
-          SUGGESTION="请检查镜像推送是否成功"
+          FAILED_STEP="Verify image exists"
         else
           # 如果无法确定具体步骤，根据错误模式推断
-          FAILED_STEP="Docker镜像构建"
-          ERROR_MSG="构建过程中发生未知错误"
-          SUGGESTION="请点击上方链接查看详细错误日志"
+          FAILED_STEP="Build and push Docker image"
         fi
         
         curl -X POST ${{ env.LARK_WEBHOOK }} \
@@ -179,30 +161,24 @@ jobs:
             "content": {
               "post": {
                 "zh_cn": {
-                  "title": "❌ Docker镜像构建失败",
+                  "title": "Docker镜像构建失败",
                   "content": [
                     [
                       {
                         "tag": "text",
-                        "text": "❌ 构建状态：失败"
+                        "text": "构建状态：失败"
                       }
                     ],
                     [
                       {
                         "tag": "text",
-                        "text": "🚨 失败步骤：'$FAILED_STEP'"
+                        "text": "失败步骤：'$FAILED_STEP'"
                       }
                     ],
                     [
                       {
                         "tag": "text",
-                        "text": "💬 错误信息：'$ERROR_MSG'"
-                      }
-                    ],
-                    [
-                      {
-                        "tag": "text",
-                        "text": "🔗 详细日志："
+                        "text": "详细日志："
                       },
                       {
                         "tag": "a",
@@ -213,13 +189,7 @@ jobs:
                     [
                       {
                         "tag": "text",
-                        "text": "⏰ 失败时间：$(date +\"%Y-%m-%d %H:%M:%S\")"
-                      }
-                    ],
-                    [
-                      {
-                        "tag": "text",
-                        "text": "💡 建议：'$SUGGESTION'"
+                        "text": "⏰ 失败时间：${{ github.run_started_at }}"
                       }
                     ]
                   ]
