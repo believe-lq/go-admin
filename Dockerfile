@@ -5,7 +5,7 @@ FROM golang:1.24-alpine AS builder
 WORKDIR /app
 
 # 设置Go环境变量 - 禁用CGO进行静态编译
-ENV GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=https://goproxy.io,direct
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
@@ -15,11 +15,12 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositorie
     apk update --no-cache && \
     apk add --no-cache git
 
-# 复制依赖文件
-COPY go.mod go.sum ./
+# 复制依赖文件（go.sum可选）
+COPY go.mod ./
 
 # 下载依赖
-RUN go mod download
+RUN go mod tidy
+
 
 # 复制源代码
 COPY . .
